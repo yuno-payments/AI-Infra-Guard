@@ -74,7 +74,7 @@
     "recharts": "^2.12.4",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
-    "socket.io-client": "^4.8.1",
+    "socket.io-client": "^4.8.4",
     "sonner": "^1.7.2",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
