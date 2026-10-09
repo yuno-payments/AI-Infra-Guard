@@ -31,6 +31,7 @@ import (
 	"strings"
 
 	"github.com/Tencent/AI-Infra-Guard/common/apichecker"
+	"github.com/Tencent/AI-Infra-Guard/common/middleware"
 	"github.com/Tencent/AI-Infra-Guard/common/trpc"
 	_ "github.com/Tencent/AI-Infra-Guard/docs"
 	version "github.com/Tencent/AI-Infra-Guard/internal/options"
@@ -52,6 +53,10 @@ func RunWebServer(options *version.Options) {
 	log.Infof("Trpc-go initialized successfully: trace_id=system_startup")
 
 	r := gin.Default()
+
+	// yuno-payments fork: optional bearer auth for the internal API surface.
+	// Empty AIG_AUTH_TOKEN preserves upstream (unauthenticated) behaviour.
+	authToken := os.Getenv("AIG_AUTH_TOKEN")
 	// 2. 添加中间件
 	//r.Use(middleware.TrpcMiddleware())
 	//r.Use(middleware.RequestLoggerMiddleware()) // 添加请求参数日志中间件
@@ -132,6 +137,7 @@ func RunWebServer(options *version.Options) {
 		})
 		// 1. 知识库模块
 		knowledge := v1.Group("/knowledge")
+		knowledge.Use(middleware.BearerAuthMiddleware(authToken))
 		knowledge.Use(setupIdentityMiddleware())
 		{
 			// AI应用指纹
@@ -194,6 +200,7 @@ func RunWebServer(options *version.Options) {
 		}
 		appSecurity := v1.Group("/app")
 		{
+			appSecurity.Use(middleware.BearerAuthMiddleware(authToken))
 			appSecurity.Use(setupIdentityMiddleware())
 			// 任务管理
 			tasks := appSecurity.Group("/tasks")
@@ -320,6 +327,7 @@ func RunWebServer(options *version.Options) {
 
 		// system — data directory auto-sync & version check
 		system := v1.Group("/system")
+		system.Use(middleware.BearerAuthMiddleware(authToken))
 		system.Use(setupIdentityMiddleware())
 		{
 			system.POST("/update-data", HandleTriggerDataUpdate)
@@ -327,6 +335,9 @@ func RunWebServer(options *version.Options) {
 			system.GET("/version", HandleVersionCheck)
 		}
 	}
+
+	// yuno-payments fork: unauthenticated health endpoint for LB/readiness probes.
+	r.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
 
 	// Swagger UI - 必须在 NoRoute 之前注册
 	r.GET("/docs/*any", func(c *gin.Context) {
